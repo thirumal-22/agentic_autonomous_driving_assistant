@@ -11,6 +11,18 @@ try:
     import cv2
 except Exception as _cv_err:
     cv2 = None
+    # Log the full import traceback to a file for debugging in deployment logs
+    try:
+        import traceback, datetime
+        logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
+        log_path = os.path.join(logs_dir, f'cv2_import_error_{datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")}.log')
+        with open(log_path, 'w') as f:
+            f.write('OpenCV import failed with the following traceback:\n')
+            traceback.print_exception(_cv_err, _cv_err, _cv_err.__traceback__, file=f)
+    except Exception:
+        # Best-effort logging; do not crash the app if logging fails
+        pass
 from dotenv import load_dotenv
 
 # Load local environment files if any
@@ -25,6 +37,15 @@ if cv2 is None:
         "installed and the runtime Python version is compatible. See logs for "
         "details. Try: `pip install --no-cache-dir --force-reinstall opencv-python-headless`"
     )
+    try:
+        # Show the most recent log filename to help debugging (non-sensitive)
+        import glob
+        logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+        files = sorted(glob.glob(os.path.join(logs_dir, 'cv2_import_error_*.log')))
+        if files:
+            st.info(f"Detailed traceback written to: {files[-1]}")
+    except Exception:
+        pass
 
 # Import graph orchestration
 from graph import build_agent_graph
@@ -194,6 +215,17 @@ if selected_img_path or uploaded_img is not None:
             draw_perception_overlay = _dpo
         except Exception:
             draw_perception_overlay = None
+            # Log lazy-import failure for debugging
+            try:
+                import traceback, datetime
+                logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+                os.makedirs(logs_dir, exist_ok=True)
+                log_path = os.path.join(logs_dir, f'cv_helpers_import_error_{datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")}.log')
+                with open(log_path, 'w') as f:
+                    f.write('cv_helpers lazy import failed with the following traceback:\n')
+                    traceback.print_exc(file=f)
+            except Exception:
+                pass
 
     if draw_perception_overlay is not None:
         annotated_img = draw_perception_overlay(processed_img.copy(), perception_results.get("detections", []))
