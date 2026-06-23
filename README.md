@@ -162,3 +162,27 @@ python3 -m unittest discover -s tests
 - **Quick demo script:** [scripts/demo_commands.sh](scripts/demo_commands.sh)
 
 Use the `INTERVIEW_TALKING_POINTS.md` file for short, interview-ready scripts and the architecture doc when sketching diagrams on a whiteboard.
+
+---
+
+## Deployment: Fixing OpenCV import errors
+
+If you see errors like `ImportError: libGL.so.1: cannot open shared object file: No such file or directory` while deploying (common on Streamlit Cloud or minimal Docker images), add the missing system packages.
+
+- For Streamlit Community Cloud: a `packages.txt` file is supported and will be installed during the build. This repository includes `packages.txt` with the required packages.
+
+- For Debian/Ubuntu servers or Docker images, install:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+```
+
+- Make sure the Python wheel is the headless OpenCV build (no GUI dependencies):
+
+```bash
+pip uninstall -y opencv-python opencv-python-headless
+pip install --no-cache-dir --force-reinstall opencv-python-headless
+```
+
+These steps resolve the `libGL.so.1` missing error and allow `cv2` to import successfully.
