@@ -171,6 +171,8 @@ If you see errors like `ImportError: libGL.so.1: cannot open shared object file:
 
 - For Streamlit Community Cloud: a `packages.txt` file is supported and will be installed during the build. This repository includes `packages.txt` with the required packages.
 
+- For Streamlit Community Cloud: a `packages.txt` file is supported and will be installed during the build. This repository includes `packages.txt` with the required packages. If the app still fails with `libGL` errors, redeploy the app after pushing the pinned `requirements.txt` and the included `scripts/post_build.sh` (Streamlit Cloud runs `pip install -r requirements.txt` during build; the `post_build.sh` script can be executed manually in the app console to force-reinstall the headless wheel).
+
 - For Debian/Ubuntu servers or Docker images, install:
 
 ```bash
@@ -182,7 +184,15 @@ sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
 
 ```bash
 pip uninstall -y opencv-python opencv-python-headless
-pip install --no-cache-dir --force-reinstall opencv-python-headless
+pip install --no-cache-dir --force-reinstall opencv-python-headless==4.13.0.92
 ```
+
+If you're deploying to Streamlit Cloud and the build still shows `libGL` errors, open the app's "Advanced" console and run:
+
+```bash
+bash scripts/post_build.sh
+```
+
+That forces reinstallation of the pinned headless wheel in the app environment.
 
 These steps resolve the `libGL.so.1` missing error and allow `cv2` to import successfully.

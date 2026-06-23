@@ -1,5 +1,6 @@
 streamlit>=1.30.0
-opencv-python-headless>=4.8.0
+# Pin a known-compatible headless OpenCV build to avoid pip selecting non-headless wheels
+opencv-python-headless==4.13.0.92
 ultralytics>=8.0.0
 torch>=2.0.0
 torchvision>=0.15.0
