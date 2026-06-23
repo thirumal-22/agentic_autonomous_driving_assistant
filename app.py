@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import numpy as np
 from PIL import Image
+from utils.helpers import load_image
 
 # Defer importing OpenCV to utility modules at runtime to avoid import-time
 # native library failures (e.g., missing libGL) that can crash the app on
@@ -134,7 +135,13 @@ uploaded_img = None
 if uploaded_file is not None:
     # Read uploaded file
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-    uploaded_img = cv2.imdecode(file_bytes, 1)
+    if cv2 is not None:
+        uploaded_img = cv2.imdecode(file_bytes, 1)
+    else:
+        # Fallback: use PIL to decode
+        from io import BytesIO
+        pil_img = Image.open(BytesIO(file_bytes)).convert('RGB')
+        uploaded_img = np.array(pil_img)[:, :, ::-1]  # Convert RGB to BGR
 elif scenario_option != "Select scenario...":
     selected_img_path = SCENARIO_MAP.get(scenario_option)
 else:
@@ -143,16 +150,24 @@ else:
 
 # Run pipeline when image is ready
 if selected_img_path or uploaded_img is not None:
-    # 1. Load Image
     if uploaded_img is not None:
         raw_img = uploaded_img
-        raw_img_rgb = cv2.cvtColor(raw_img, cv2.COLOR_BGR2RGB)
+        # Convert BGR to RGB
+        if cv2 is not None:
+            raw_img_rgb = cv2.cvtColor(raw_img, cv2.COLOR_BGR2RGB)
+        else:
+            raw_img_rgb = raw_img[:, :, ::-1] if len(raw_img.shape) == 3 else raw_img
     else:
-        raw_img = cv2.imread(selected_img_path)
-        if raw_img is None:
-            st.error(f"Sample image not found: {selected_img_path}")
+        # Use helper with fallback support
+        try:
+            raw_img = load_image(selected_img_path)
+        except Exception as e:
+            st.error(f"Failed to load image: {e}")
             st.stop()
-        raw_img_rgb = cv2.cvtColor(raw_img, cv2.COLOR_BGR2RGB)
+        if cv2 is not None:
+            raw_img_rgb = cv2.cvtColor(raw_img, cv2.COLOR_BGR2RGB)
+        else:
+            raw_img_rgb = raw_img[:, :, ::-1] if len(raw_img.shape) == 3 else raw_img
         
     # 2. Compile and Run LangGraph
     graph = build_agent_graph()
@@ -200,7 +215,11 @@ if selected_img_path or uploaded_img is not None:
         annotated_img = draw_perception_overlay(processed_img.copy(), perception_results.get("detections", []))
     else:
         annotated_img = processed_img.copy()
-    annotated_img_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
+    # Convert BGR to RGB for display
+    if cv2 is not None:
+        annotated_img_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
+    else:
+        annotated_img_rgb = annotated_img[:, :, ::-1] if len(annotated_img.shape) == 3 else annotated_img
     
     # ----------------- SECTION 1: SYSTEM STATE METRICS -----------------
     col1, col2, col3, col4 = st.columns(4)
