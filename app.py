@@ -13,6 +13,12 @@ from dotenv import load_dotenv
 # Load local environment files if any
 load_dotenv()
 
+# Import cv2 at runtime with fallback; some deployments lack compatible wheels
+try:
+    import cv2
+except Exception:
+    cv2 = None
+
 # Note: If cv2 is missing at runtime the UI will still work; features that
 # rely on CV functions will either be no-ops or use PIL fallbacks from
 # `utils/helpers.py` and `utils/cv_helpers.py`.
