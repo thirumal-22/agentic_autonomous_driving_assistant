@@ -1,16 +1,36 @@
 import os
 import streamlit as st
-import cv2
 import numpy as np
 from PIL import Image
+
+# Import OpenCV with graceful degradation. Some deployment environments
+# (different Python versions / missing native wheels) can raise hard
+# ImportErrors when importing `cv2`. Catch the error and keep `cv2` as
+# None so the app can show a helpful message instead of crashing.
+try:
+    import cv2
+except Exception as _cv_err:
+    cv2 = None
 from dotenv import load_dotenv
 
 # Load local environment files if any
 load_dotenv()
 
+# If OpenCV failed to import, show a clear error in Streamlit (redacted
+# exceptions are shown by some hosting providers). Provide quick remediation
+# steps in the UI so an interviewer or deployer can fix environment issues.
+if cv2 is None:
+    st.error(
+        "OpenCV (cv2) failed to import. Ensure `opencv-python-headless` is "
+        "installed and the runtime Python version is compatible. See logs for "
+        "details. Try: `pip install --no-cache-dir --force-reinstall opencv-python-headless`"
+    )
+
 # Import graph orchestration
 from graph import build_agent_graph
-from utils.cv_helpers import draw_perception_overlay
+
+# Lazy import for cv_helpers to avoid triggering OpenCV import at module load time
+draw_perception_overlay = None
 
 # Set Premium Page Layout
 st.set_page_config(
@@ -167,7 +187,18 @@ if selected_img_path or uploaded_img is not None:
     processed_img = final_state.get("processed_image")
     
     # Draw perception bounding boxes with updated risk levels
-    annotated_img = draw_perception_overlay(processed_img.copy(), perception_results.get("detections", []))
+    # Import drawing helper lazily to prevent import-time OpenCV errors
+    if draw_perception_overlay is None:
+        try:
+            from utils.cv_helpers import draw_perception_overlay as _dpo
+            draw_perception_overlay = _dpo
+        except Exception:
+            draw_perception_overlay = None
+
+    if draw_perception_overlay is not None:
+        annotated_img = draw_perception_overlay(processed_img.copy(), perception_results.get("detections", []))
+    else:
+        annotated_img = processed_img.copy()
     annotated_img_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
     
     # ----------------- SECTION 1: SYSTEM STATE METRICS -----------------
